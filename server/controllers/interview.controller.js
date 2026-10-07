@@ -13,9 +13,19 @@ const cleanJsonResponse = (text) => {
 
 const loadPdfJs = async () => {
   // pdfjs-dist evaluates browser canvas globals during module loading. Resume text
-  // extraction does not render pages, so provide the minimal Node-safe fallback.
+  // extraction does not render pages, so provide Node-safe fallbacks before import.
   if (!globalThis.DOMMatrix) {
-    globalThis.DOMMatrix = class DOMMatrix {};
+    globalThis.DOMMatrix = class DOMMatrix {
+      constructor() {
+        this.a = 1;
+        this.d = 1;
+        this.b = 0;
+        this.c = 0;
+        this.e = 0;
+        this.f = 0;
+        this.is2D = true;
+      }
+    };
   }
   if (!globalThis.ImageData) {
     globalThis.ImageData = class ImageData {};
@@ -23,6 +33,7 @@ const loadPdfJs = async () => {
   if (!globalThis.Path2D) {
     globalThis.Path2D = class Path2D {};
   }
+
   return import("pdfjs-dist/legacy/build/pdf.mjs");
 };
 
