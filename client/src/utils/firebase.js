@@ -11,13 +11,13 @@ const firebaseConfig = {
   measurementId: "G-G4K3K5GMLL"
 };
 
-const app = initializeApp(firebaseConfig);
-
-const auth = getAuth(app);
+const hasFirebaseApiKey = Boolean(firebaseConfig.apiKey);
+const app = hasFirebaseApiKey ? initializeApp(firebaseConfig) : null;
+const auth = app ? getAuth(app) : null;
 
 const provider = new GoogleAuthProvider();
 provider.setCustomParameters({
   prompt: "select_account",
 });
 
-export { auth, provider };
+export { auth, provider, hasFirebaseApiKey };

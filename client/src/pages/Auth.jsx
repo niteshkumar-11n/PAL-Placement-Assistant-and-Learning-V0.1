@@ -4,7 +4,7 @@ import { HiSparkles } from "react-icons/hi";
 import { motion } from "motion/react";
 import { FcGoogle } from "react-icons/fc";
 import { signInWithPopup } from 'firebase/auth';
-import { auth, provider } from '../utils/firebase';
+import { auth, provider, hasFirebaseApiKey } from '../utils/firebase';
 import axios from 'axios';
 import { ServerUrl } from '../App';
 import { useDispatch, useSelector } from 'react-redux';
@@ -25,6 +25,11 @@ function Auth({ isModel = false }) {
     }, [userData, isModel, navigate]);
 
     const handleGoogleAuth = async () => {
+        if (!hasFirebaseApiKey || !auth) {
+            console.error("Google sign-in is unavailable: VITE_FIREBASE_APIKEY is not configured.");
+            return;
+        }
+
         setIsLoading(true);
         try {
             const response = await signInWithPopup(auth, provider);
