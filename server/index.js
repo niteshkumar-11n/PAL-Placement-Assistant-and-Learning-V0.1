@@ -13,7 +13,11 @@ const app = express()
 
 // Connect DB middleware for Vercel serverless execution
 app.use(async (req, res, next) => {
-    await connectDb()
+    try {
+        await connectDb()
+    } catch (err) {
+        console.error("MongoDB Connection Error in Middleware:", err)
+    }
     next()
 })
 
@@ -24,11 +28,7 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin) || process.env.VERCEL) {
-            callback(null, true)
-        } else {
-            callback(null, true)
-        }
+        callback(null, true)
     },
     credentials: true
 }))
@@ -46,8 +46,12 @@ app.use("/api/user", userRouter)
 app.use("/api/interview", interviewRouter)
 app.use("/api/payment", paymentRouter)
 
+app.get("/api", (req, res) => {
+    res.json({ status: "online", message: "InterviewIQ API is running" })
+})
+
 app.get("/", (req, res) => {
-    res.json({ message: "InterviewIQ API is running" })
+    res.json({ status: "online", message: "InterviewIQ API is running" })
 })
 
 const PORT = process.env.PORT || 6000
@@ -55,8 +59,6 @@ const PORT = process.env.PORT || 6000
 if (!process.env.VERCEL) {
     app.listen(PORT, () => {
         console.log(`Server running on port ${PORT}`)
-        console.log(`OpenRouter Config: model=${process.env.OPENROUTER_MODEL || 'openai/gpt-4o-mini'}, keyPresent=${!!process.env.OPENROUTER_API_KEY}`)
-        console.log(`Razorpay Config: configured=${!!(process.env.RAZORPAY_KEY_ID && !process.env.RAZORPAY_KEY_ID.includes('add your'))}`)
     })
 }
 
