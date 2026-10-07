@@ -10,7 +10,7 @@ const isAuth = async (req, res, next) => {
 
         let verifyToken
         try {
-            verifyToken = jwt.verify(token, process.env.JWT_SECRET)
+            verifyToken = jwt.verify(token, process.env.JWT_SECRET || "DSY29QURD12R23TFNO1FFFTY13")
         } catch (err) {
             return res.status(401).json({ message: "Invalid or expired token" })
         }

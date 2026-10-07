@@ -7,22 +7,35 @@ import { signInWithPopup } from 'firebase/auth';
 import { auth, provider } from '../utils/firebase';
 import axios from 'axios';
 import { ServerUrl } from '../App';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { setUserData } from '../redux/userSlice';
+import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
 
 function Auth({ isModel = false }) {
     const dispatch = useDispatch();
+    const navigate = useNavigate();
+    const { userData } = useSelector((state) => state.user);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (userData && !isModel) {
+            navigate('/');
+        }
+    }, [userData, isModel, navigate]);
 
     const handleGoogleAuth = async () => {
         setIsLoading(true);
         try {
             const response = await signInWithPopup(auth, provider);
             const user = response.user;
-            const name = user.displayName;
+            const name = user.displayName || user.email?.split('@')[0] || "User";
             const email = user.email;
             const result = await axios.post(ServerUrl + "/api/auth/google", { name, email }, { withCredentials: true });
             dispatch(setUserData(result.data));
+            if (!isModel) {
+                navigate('/');
+            }
         } catch (error) {
             if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
                 console.error("Google sign-in error:", error?.message || error);

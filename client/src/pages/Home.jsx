@@ -149,7 +149,7 @@ function Home() {
                     title="Click to view pricing & credits"
                   >
                     <FaCoins size={16} className="text-amber-500" />
-                    <span>{userData?.credits ? `${userData.credits} Credits Available` : "Credits Available"}</span>
+                    <span>{userData?.credits !== undefined ? `${userData.credits} Credits Available` : "Get Credits"}</span>
                   </button>
                 </motion.div>
 

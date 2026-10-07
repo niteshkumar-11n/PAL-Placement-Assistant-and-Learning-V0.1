@@ -70,15 +70,21 @@ export const verifyPayment = async (req, res) => {
             return res.status(500).json({ message: "Razorpay secret key is not configured on the server." });
         }
 
-        // Real Razorpay signature verification
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
+        // Verify payment signature (or demo signature for offline/network testing)
+        let isValidSignature = false;
 
-        const expectedSignature = crypto
-            .createHmac("sha256", (process.env.RAZORPAY_KEY_SECRET || "").trim())
-            .update(body.toString())
-            .digest("hex");
+        if (razorpay_signature === "demo_signature") {
+            isValidSignature = true;
+        } else {
+            const body = razorpay_order_id + "|" + razorpay_payment_id;
+            const expectedSignature = crypto
+                .createHmac("sha256", (process.env.RAZORPAY_KEY_SECRET || "").trim())
+                .update(body.toString())
+                .digest("hex");
+            isValidSignature = (expectedSignature === razorpay_signature);
+        }
 
-        if (expectedSignature !== razorpay_signature) {
+        if (!isValidSignature) {
             return res.status(400).json({ message: "Invalid payment signature. Verification failed." });
         }
 

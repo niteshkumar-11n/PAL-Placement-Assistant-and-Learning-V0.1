@@ -108,7 +108,7 @@ function Navbar() {
                         >
                             <BsCoin size={20} className='text-amber-500 drop-shadow-2xs animate-pulse' />
                             <span className='font-extrabold text-[15px] text-slate-900'>
-                                {userData?.credits ?? 100}
+                                {userData ? userData.credits : '—'}
                             </span>
                             <span className='text-xs font-bold text-amber-900 bg-amber-200/80 px-2 py-0.5 rounded-lg'>
                                 Credits
@@ -229,7 +229,7 @@ function Navbar() {
                         className='flex items-center gap-1.5 bg-amber-50 border border-amber-300/80 px-2.5 py-1.5 rounded-xl text-xs font-bold text-amber-900'
                     >
                         <BsCoin size={15} className='text-amber-500' />
-                        <span>{userData?.credits ?? 100}</span>
+                        <span>{userData ? userData.credits : '—'}</span>
                     </button>
 
                     <button
