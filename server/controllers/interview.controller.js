@@ -1,5 +1,4 @@
 import fs from "fs"
-import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 import { askAi } from "../services/openRouter.service.js";
 import User from "../models/user.model.js";
 import Interview from "../models/interview.model.js";
@@ -10,6 +9,21 @@ const cleanJsonResponse = (text) => {
   // Remove ```json or ``` wrapper
   cleaned = cleaned.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
   return cleaned.trim();
+};
+
+const loadPdfJs = async () => {
+  // pdfjs-dist evaluates browser canvas globals during module loading. Resume text
+  // extraction does not render pages, so provide the minimal Node-safe fallback.
+  if (!globalThis.DOMMatrix) {
+    globalThis.DOMMatrix = class DOMMatrix {};
+  }
+  if (!globalThis.ImageData) {
+    globalThis.ImageData = class ImageData {};
+  }
+  if (!globalThis.Path2D) {
+    globalThis.Path2D = class Path2D {};
+  }
+  return import("pdfjs-dist/legacy/build/pdf.mjs");
 };
 
 export const analyzeResume = async (req, res) => {
@@ -24,6 +38,7 @@ export const analyzeResume = async (req, res) => {
     const uint8Array = new Uint8Array(fileBuffer)
     console.log("Step 2: File read, size:", fileBuffer.length, "bytes");
 
+    const pdfjsLib = await loadPdfJs();
     const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
     console.log("Step 3: PDF loaded, pages:", pdf.numPages);
 
