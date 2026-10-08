@@ -54,26 +54,28 @@ export const analyzeResume = async (req, res) => {
     const uint8Array = new Uint8Array(fileBuffer)
     console.log("Step 2: File read, size:", fileBuffer.length, "bytes");
 
-    const pdfjsLib = await loadPdfJs();
-    const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-    console.log("Step 3: PDF loaded, pages:", pdf.numPages);
-
     let resumeText = "";
 
-    // Extract text from all pages
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const content = await page.getTextContent();
+    try {
+      const pdfjsLib = await loadPdfJs();
+      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+      console.log("Step 3: PDF loaded, pages:", pdf.numPages);
 
-      const pageText = content.items.map(item => item.str).join(" ");
-      resumeText += pageText + "\n";
+      // Extract text from all pages without writing the upload to disk.
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        resumeText += content.items.map(item => item.str).join(" ") + "\n";
+      }
+    } catch (error) {
+      console.error("Resume PDF extraction failed:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to extract text from resume"
+      });
     }
 
-
-    resumeText = resumeText
-      .replace(/\s+/g, " ")
-      .trim();
-
+    resumeText = resumeText.replace(/\s+/g, " ").trim();
     console.log("Step 4: Text extracted, length:", resumeText.length);
 
     const messages = [
