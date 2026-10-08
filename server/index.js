@@ -37,7 +37,8 @@ app.use(express.json())
 app.use(cookieParser())
 
 app.use((req, res, next) => {
-    res.setHeader("Cross-Origin-Opener-Policy", "same-origin-allow-popups")
+    // Firebase popup authentication needs the opener relationship preserved.
+    res.setHeader("Cross-Origin-Opener-Policy", "unsafe-none")
     next()
 })
 

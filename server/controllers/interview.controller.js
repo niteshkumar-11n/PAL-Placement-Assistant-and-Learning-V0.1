@@ -1,4 +1,3 @@
-import fs from "fs"
 import { askAi } from "../services/openRouter.service.js";
 import User from "../models/user.model.js";
 import Interview from "../models/interview.model.js";
@@ -42,33 +41,41 @@ export const analyzeResume = async (req, res) => {
     if (!req.file) {
       return res.status(400).json({ message: "Resume required" });
     }
-    const filepath = req.file.path
-    console.log("Step 1: File received at:", filepath);
+    console.log("Step 1: File received:", {
+      name: req.file.originalname,
+      type: req.file.mimetype,
+      size: req.file.size
+    });
 
-    const fileBuffer = await fs.promises.readFile(filepath)
+    const fileBuffer = req.file.buffer;
+    if (!fileBuffer) {
+      throw Object.assign(new Error("Uploaded file data is unavailable."), { statusCode: 400 });
+    }
     const uint8Array = new Uint8Array(fileBuffer)
     console.log("Step 2: File read, size:", fileBuffer.length, "bytes");
 
-    const pdfjsLib = await loadPdfJs();
-    const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-    console.log("Step 3: PDF loaded, pages:", pdf.numPages);
-
     let resumeText = "";
 
-    // Extract text from all pages
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const content = await page.getTextContent();
+    try {
+      const pdfjsLib = await loadPdfJs();
+      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
+      console.log("Step 3: PDF loaded, pages:", pdf.numPages);
 
-      const pageText = content.items.map(item => item.str).join(" ");
-      resumeText += pageText + "\n";
+      // Extract text from all pages without writing the upload to disk.
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        resumeText += content.items.map(item => item.str).join(" ") + "\n";
+      }
+    } catch (error) {
+      console.error("Resume PDF extraction failed:", error.message);
+      return res.status(500).json({
+        success: false,
+        message: "Unable to extract text from resume"
+      });
     }
 
-
-    resumeText = resumeText
-      .replace(/\s+/g, " ")
-      .trim();
-
+    resumeText = resumeText.replace(/\s+/g, " ").trim();
     console.log("Step 4: Text extracted, length:", resumeText.length);
 
     const messages = [
@@ -103,9 +110,6 @@ Return strictly JSON (no markdown, no code blocks):
     const parsed = JSON.parse(cleaned);
     console.log("Step 7: JSON parsed successfully");
 
-    fs.unlinkSync(filepath)
-
-
     res.json({
       role: parsed.role,
       experience: parsed.experience,
@@ -117,18 +121,11 @@ Return strictly JSON (no markdown, no code blocks):
   } catch (error) {
     console.error("analyzeResume ERROR:", error.message);
 
-    if (req.file && fs.existsSync(req.file.path)) {
-      try {
-        fs.unlinkSync(req.file.path);
-      } catch (unlinkErr) {
-        console.error("Error removing uploaded file:", unlinkErr);
-      }
-    }
-
     const statusCode = error.statusCode || 500;
     return res.status(statusCode).json({
-      message: error.message || "Failed to analyze resume.",
-      details: error.details || null
+      success: false,
+      message: "Resume analysis failed",
+      error: error.message || "Failed to analyze resume."
     });
   }
 };
