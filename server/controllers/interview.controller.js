@@ -26,57 +26,68 @@ const loadPdfJs = async () => {
       }
     };
   }
-  if (!globalThis.ImageData) {
-    globalThis.ImageData = class ImageData {};
-  }
-  if (!globalThis.Path2D) {
-    globalThis.Path2D = class Path2D {};
-  }
+  if (!globalThis.ImageData) globalThis.ImageData = class ImageData {};
+  if (!globalThis.Path2D) globalThis.Path2D = class Path2D {};
 
   return import("pdfjs-dist/legacy/build/pdf.mjs");
 };
 
 export const analyzeResume = async (req, res) => {
   try {
+    console.log("[Resume] Request received");
+
     if (!req.file) {
-      return res.status(400).json({ message: "Resume required" });
+      return res.status(400).json({ success: false, message: "Resume file is required" });
     }
-    console.log("Step 1: File received:", {
-      name: req.file.originalname,
-      type: req.file.mimetype,
+
+    console.log("[Resume] File received:", {
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
       size: req.file.size
     });
 
     const fileBuffer = req.file.buffer;
-    if (!fileBuffer) {
-      throw Object.assign(new Error("Uploaded file data is unavailable."), { statusCode: 400 });
+    console.log("[Resume] Buffer available:", Boolean(fileBuffer));
+
+    if (!fileBuffer || fileBuffer.length === 0) {
+      return res.status(400).json({ success: false, message: "Invalid resume file" });
     }
-    const uint8Array = new Uint8Array(fileBuffer)
-    console.log("Step 2: File read, size:", fileBuffer.length, "bytes");
+
+    if (req.file.mimetype !== "application/pdf") {
+      return res.status(400).json({ success: false, message: "Resume must be a PDF file" });
+    }
 
     let resumeText = "";
-
     try {
+      console.log("[Resume] Starting PDF extraction");
       const pdfjsLib = await loadPdfJs();
-      const pdf = await pdfjsLib.getDocument({ data: uint8Array }).promise;
-      console.log("Step 3: PDF loaded, pages:", pdf.numPages);
+      const pdf = await pdfjsLib.getDocument({
+        data: new Uint8Array(fileBuffer),
+        disableWorker: true,
+        useSystemFonts: false
+      }).promise;
 
-      // Extract text from all pages without writing the upload to disk.
       for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
         const page = await pdf.getPage(pageNum);
         const content = await page.getTextContent();
-        resumeText += content.items.map(item => item.str).join(" ") + "\n";
+        resumeText += content.items
+          .map((item) => ("str" in item ? item.str : ""))
+          .join(" ") + "\n";
       }
+      console.log("[Resume] PDF extraction successful");
     } catch (error) {
-      console.error("Resume PDF extraction failed:", error.message);
-      return res.status(500).json({
-        success: false,
-        message: "Unable to extract text from resume"
-      });
+      console.error("[Resume] PDF extraction failed:", error?.message || "Unknown parser error");
+      return res.status(500).json({ success: false, message: "Unable to extract text from resume" });
     }
 
     resumeText = resumeText.replace(/\s+/g, " ").trim();
-    console.log("Step 4: Text extracted, length:", resumeText.length);
+    console.log("[Resume] Extracted text length:", resumeText.length);
+    if (!resumeText) {
+      return res.status(422).json({
+        success: false,
+        message: "No readable text was found in the uploaded PDF"
+      });
+    }
 
     const messages = [
       {
