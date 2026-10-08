@@ -11,23 +11,31 @@ const cleanJsonResponse = (text) => {
 };
 
 const loadPdfJs = async () => {
-  // pdfjs-dist evaluates browser canvas globals during module loading. Resume text
-  // extraction does not render pages, so provide Node-safe fallbacks before import.
-  if (!globalThis.DOMMatrix) {
-    globalThis.DOMMatrix = class DOMMatrix {
-      constructor() {
-        this.a = 1;
-        this.d = 1;
-        this.b = 0;
-        this.c = 0;
-        this.e = 0;
-        this.f = 0;
-        this.is2D = true;
-      }
-    };
+  // pdfjs-dist evaluates browser canvas globals during module loading. Use the
+  // Node canvas implementation when available; the fallbacks keep text-only
+  // extraction working without rendering pages.
+  try {
+    const canvas = await import("@napi-rs/canvas");
+    globalThis.DOMMatrix ??= canvas.DOMMatrix;
+    globalThis.ImageData ??= canvas.ImageData;
+    globalThis.Path2D ??= canvas.Path2D;
+  } catch (error) {
+    console.warn("[Resume] Optional canvas runtime unavailable:", error?.message || "unknown error");
   }
-  if (!globalThis.ImageData) globalThis.ImageData = class ImageData {};
-  if (!globalThis.Path2D) globalThis.Path2D = class Path2D {};
+
+  globalThis.DOMMatrix ??= class DOMMatrix {
+    constructor() {
+      this.a = 1;
+      this.d = 1;
+      this.b = 0;
+      this.c = 0;
+      this.e = 0;
+      this.f = 0;
+      this.is2D = true;
+    }
+  };
+  globalThis.ImageData ??= class ImageData {};
+  globalThis.Path2D ??= class Path2D {};
 
   return import("pdfjs-dist/legacy/build/pdf.mjs");
 };
@@ -37,17 +45,16 @@ export const analyzeResume = async (req, res) => {
     console.log("[Resume] Request received");
 
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "Resume file is required" });
+      return res.status(400).json({ success: false, stage: "upload", errorCode: "RESUME_REQUIRED", message: "Resume file is required" });
     }
 
-    console.log("[Resume] File received:", {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size
-    });
-
     const fileBuffer = req.file.buffer;
-    console.log("[Resume] Buffer available:", Boolean(fileBuffer));
+    console.log("[Resume] file exists:", true);
+    console.log("[Resume] filename:", req.file.originalname);
+    console.log("[Resume] mimetype:", req.file.mimetype);
+    console.log("[Resume] size:", req.file.size);
+    console.log("[Resume] buffer exists:", Boolean(fileBuffer));
+    console.log("[Resume] buffer size:", fileBuffer?.length || 0);
 
     if (!fileBuffer || fileBuffer.length === 0) {
       return res.status(400).json({ success: false, message: "Invalid resume file" });
@@ -77,7 +84,12 @@ export const analyzeResume = async (req, res) => {
       console.log("[Resume] PDF extraction successful");
     } catch (error) {
       console.error("[Resume] PDF extraction failed:", error?.message || "Unknown parser error");
-      return res.status(500).json({ success: false, message: "Unable to extract text from resume" });
+      return res.status(500).json({
+        success: false,
+        stage: "pdf_extraction",
+        errorCode: "PDF_PARSE_FAILED",
+        message: "Unable to extract text from resume"
+      });
     }
 
     resumeText = resumeText.replace(/\s+/g, " ").trim();
@@ -112,8 +124,9 @@ Return strictly JSON (no markdown, no code blocks):
     ];
 
 
+    console.log("[Resume] Starting OpenRouter request");
     const aiResponse = await askAi(messages)
-    console.log("Step 5: AI response received:", aiResponse.substring(0, 200));
+    console.log("[Resume] OpenRouter response received");
 
     const cleaned = cleanJsonResponse(aiResponse);
     console.log("Step 6: Cleaned response:", cleaned.substring(0, 200));
