@@ -55,12 +55,13 @@ app.get("/", (req, res) => {
     res.json({ status: "online", message: "InterviewIQ API is running" })
 })
 
-const PORT = process.env.PORT || 6000
+
+const PORT = process.env.PORT || 6000;
 
 if (!process.env.VERCEL) {
-    app.listen(PORT, () => {
-        console.log(`Server running on port ${PORT}`)
-    })
+    app.listen(PORT, "0.0.0.0", () => {
+        console.log(`Server running on port ${PORT}`);
+    });
 }
 
-export default app
+export default app;
