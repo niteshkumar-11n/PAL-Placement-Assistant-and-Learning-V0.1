@@ -2,7 +2,8 @@ import jwt from "jsonwebtoken"
 import User from "../models/user.model.js"
 import mongoose from "mongoose"
 
-const isProduction = process.env.NODE_ENV === "production"
+// Detect production: if CLIENT_URL is set, we're in a deployed environment
+const isProduction = !!process.env.CLIENT_URL
 const clearCookieOptions = {
     httpOnly: true,
     secure: isProduction,
