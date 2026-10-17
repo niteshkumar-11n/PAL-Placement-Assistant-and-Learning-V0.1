@@ -2,6 +2,13 @@ import jwt from "jsonwebtoken"
 import User from "../models/user.model.js"
 import mongoose from "mongoose"
 
+const isProduction = process.env.NODE_ENV === "production"
+const clearCookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? "none" : "lax"
+}
+
 export const getCurrentUser = async (req, res) => {
     try {
         const { token } = req.cookies || {}
@@ -14,18 +21,18 @@ export const getCurrentUser = async (req, res) => {
         try {
             verifyToken = jwt.verify(token, process.env.JWT_SECRET || "DSY29QURD12R23TFNO1FFFTY13")
         } catch (err) {
-            res.clearCookie("token")
+            res.clearCookie("token", clearCookieOptions)
             return res.status(200).json(null)
         }
 
         if (!verifyToken || !verifyToken.userId || !mongoose.Types.ObjectId.isValid(verifyToken.userId)) {
-            res.clearCookie("token")
+            res.clearCookie("token", clearCookieOptions)
             return res.status(200).json(null)
         }
 
         const user = await User.findById(verifyToken.userId).select("-password")
         if (!user) {
-            res.clearCookie("token")
+            res.clearCookie("token", clearCookieOptions)
             return res.status(200).json(null)
         }
 
